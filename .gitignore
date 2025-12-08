@@ -23,7 +23,7 @@ trading.db
 Thumbs.db
 
 # Streamlit
-.streamlit/
+.streamlit/secrets.toml
 streamlit.log
 
 # Logs
