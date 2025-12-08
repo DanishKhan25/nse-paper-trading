@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from portfolio_manager import PortfolioManager
 from data_fetcher import (
     get_historical_data, get_current_price, get_stock_fundamentals,
-    calculate_sma, get_nifty_500_symbols
+    calculate_sma, get_nifty_500_symbols, extract_symbol
 )
 
 # Page config
@@ -118,7 +118,8 @@ with tab1:
         
         # Stock selector
         symbols = get_nifty_500_symbols()
-        selected_symbol = st.selectbox("Select Stock", symbols, key="trade_symbol")
+        selected_display = st.selectbox("Select Stock", symbols, key="trade_symbol")
+        selected_symbol = extract_symbol(selected_display)
         
         # Get current price
         current_price = get_current_price(selected_symbol)
@@ -180,7 +181,7 @@ with tab1:
                 height=400
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.error("Unable to load chart data")
 
@@ -227,7 +228,7 @@ with tab2:
                     return ['color: red' if '-' in str(v) else 'color: green' for v in val]
             return [''] * len(val)
         
-        st.dataframe(df_display, use_container_width=True)
+        st.dataframe(df_display, width='stretch')
 
 # Tab 3 - Order Book
 with tab3:
@@ -248,7 +249,7 @@ with tab3:
         orders_display = orders_display[display_cols]
         orders_display.columns = ['Timestamp', 'Symbol', 'Type', 'Quantity', 'Price', 'Total Value', 'Strategy', 'Status']
         
-        st.dataframe(orders_display, use_container_width=True)
+        st.dataframe(orders_display, width='stretch')
         
         # Strategy analysis
         if not orders_df.empty:
@@ -270,7 +271,8 @@ with tab4:
     st.subheader("📊 Stock Analysis")
     
     # Stock selector for analysis
-    analysis_symbol = st.selectbox("Select Stock for Analysis", get_nifty_500_symbols(), key="analysis_symbol")
+    analysis_display = st.selectbox("Select Stock for Analysis", get_nifty_500_symbols(), key="analysis_symbol")
+    analysis_symbol = extract_symbol(analysis_display)
     
     col1, col2 = st.columns([1, 2])
     
@@ -355,7 +357,7 @@ with tab4:
                 height=500
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.error("Unable to load chart data")
 

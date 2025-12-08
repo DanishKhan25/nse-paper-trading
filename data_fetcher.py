@@ -99,7 +99,9 @@ def get_nifty_500_symbols():
         
         # Read and parse
         df = pd.read_csv(local_file)
-        symbols = df['Symbol'].dropna().unique().tolist()
+        # Create "Symbol - Name" format
+        df['display'] = df['Symbol'] + ' - ' + df['Security Name']
+        symbols = df['display'].dropna().unique().tolist()
         return sorted(symbols)
         
     except Exception as e:
@@ -107,15 +109,17 @@ def get_nifty_500_symbols():
         if os.path.exists(local_file):
             try:
                 df = pd.read_csv(local_file)
-                symbols = df['Symbol'].dropna().unique().tolist()
+                df['display'] = df['Symbol'] + ' - ' + df['Security Name']
+                symbols = df['display'].dropna().unique().tolist()
                 return sorted(symbols)
             except:
                 pass
         
         # Final fallback to hardcoded list
         return sorted([
-            'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'HINDUNILVR', 'ICICIBANK', 'KOTAKBANK',
-            'BHARTIARTL', 'ITC', 'SBIN', 'LT', 'ASIANPAINT', 'AXISBANK', 'MARUTI', 'NESTLEIND',
-            'HCLTECH', 'WIPRO', 'ULTRACEMCO', 'BAJFINANCE', 'TITAN', 'SUNPHARMA', 'ONGC',
-            'NTPC', 'POWERGRID', 'TECHM', 'TATAMOTORS', 'COALINDIA', 'BAJAJFINSV', 'HDFCLIFE'
+            'RELIANCE - RELIANCE INDUSTRIES LIMITED',
         ])
+
+def extract_symbol(display_text):
+    """Extract symbol from 'SYMBOL - Company Name' format"""
+    return display_text.split(' - ')[0] if ' - ' in display_text else display_text
