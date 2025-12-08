@@ -3,6 +3,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import warnings
+import requests
+import os
 warnings.filterwarnings('ignore')
 
 @st.cache_data(ttl=86400)  # 24 hour cache for historical data
@@ -79,17 +81,41 @@ def calculate_sma(data, window):
         return data['Close'].rolling(window=window).mean()
     return None
 
+@st.cache_data(ttl=86400)  # 24 hour cache
 def get_nifty_500_symbols():
-    """Return a list of popular NSE symbols for autocomplete"""
-    # Sample of popular NSE stocks - in production, this could be loaded from a file
-    symbols = [
-        'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'HINDUNILVR', 'ICICIBANK', 'KOTAKBANK',
-        'BHARTIARTL', 'ITC', 'SBIN', 'LT', 'ASIANPAINT', 'AXISBANK', 'MARUTI', 'NESTLEIND',
-        'HCLTECH', 'WIPRO', 'ULTRACEMCO', 'BAJFINANCE', 'TITAN', 'SUNPHARMA', 'ONGC',
-        'NTPC', 'POWERGRID', 'TECHM', 'TATAMOTORS', 'COALINDIA', 'BAJAJFINSV', 'HDFCLIFE',
-        'BRITANNIA', 'DIVISLAB', 'CIPLA', 'DRREDDY', 'EICHERMOT', 'GRASIM', 'HINDALCO',
-        'INDUSINDBK', 'JSWSTEEL', 'M&M', 'ONGC', 'SBILIFE', 'SHREECEM', 'TATASTEEL',
-        'TATACONSUM', 'UPL', 'VEDL', 'ADANIPORTS', 'APOLLOHOSP', 'BAJAJ-AUTO', 'BPCL',
-        'HEROMOTOCO', 'IOC', 'PIDILITIND', 'TRENT'
-    ]
-    return sorted(symbols)
+    """Fetch NSE symbols from NSE website with local CSV fallback"""
+    local_file = 'sec_list.csv'
+    
+    try:
+        # Try downloading from NSE
+        url = 'https://nsearchives.nseindia.com/content/equities/sec_list.csv'
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        # Save to local file
+        with open(local_file, 'wb') as f:
+            f.write(response.content)
+        
+        # Read and parse
+        df = pd.read_csv(local_file)
+        symbols = df['Symbol'].dropna().unique().tolist()
+        return sorted(symbols)
+        
+    except Exception as e:
+        # Fallback to local file
+        if os.path.exists(local_file):
+            try:
+                df = pd.read_csv(local_file)
+                symbols = df['Symbol'].dropna().unique().tolist()
+                return sorted(symbols)
+            except:
+                pass
+        
+        # Final fallback to hardcoded list
+        return sorted([
+            'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'HINDUNILVR', 'ICICIBANK', 'KOTAKBANK',
+            'BHARTIARTL', 'ITC', 'SBIN', 'LT', 'ASIANPAINT', 'AXISBANK', 'MARUTI', 'NESTLEIND',
+            'HCLTECH', 'WIPRO', 'ULTRACEMCO', 'BAJFINANCE', 'TITAN', 'SUNPHARMA', 'ONGC',
+            'NTPC', 'POWERGRID', 'TECHM', 'TATAMOTORS', 'COALINDIA', 'BAJAJFINSV', 'HDFCLIFE'
+        ])
