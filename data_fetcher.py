@@ -19,6 +19,10 @@ def get_historical_data(symbol, period="3y"):
         if data.empty:
             return None
         
+        # Flatten multi-level columns if they exist
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.droplevel(1)
+        
         return data
     except Exception as e:
         st.error(f"Error fetching historical data for {symbol}: {str(e)}")
