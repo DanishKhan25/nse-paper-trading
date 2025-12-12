@@ -103,6 +103,8 @@ def get_nifty_500_symbols():
         
         # Read and parse
         df = pd.read_csv(local_file)
+        # Filter for equity stocks only (Series = EQ)
+        df = df[df['Series'] == 'EQ']
         # Create "Symbol - Name" format
         df['display'] = df['Symbol'] + ' - ' + df['Security Name']
         symbols = df['display'].dropna().unique().tolist()

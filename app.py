@@ -36,7 +36,7 @@ def check_password():
     st.markdown("""
     <style>
     .stApp {
-        background-image: url('https://plus.unsplash.com/premium_photo-1661609098718-3408828713ba?q=80&w=1781&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+        background-image: url('https://images.unsplash.com/photo-1633158829875-e5316a358c6f?q=80&w=1770&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -262,8 +262,8 @@ with st.sidebar:
                 st.error(message)
 
 # Main content
-st.title("📈 NSE Paper Trading App")
-st.markdown("---")
+# st.title("📈 NSE Paper Trading App")
+# st.markdown("---")
 
 # Create tabs
 tab1, tab2, tab3, tab4 = st.tabs(["🔄 Trade", "💼 Holdings", "📋 Order Book", "📊 Analysis"])
@@ -439,7 +439,7 @@ with tab2:
                     brick_size_pct = 1.0
                     if current_price:
                         st.info(f"**{selected_holding}** - Current: ₹{current_price:.2f} | Brick: {brick_size_pct}% (₹{current_price * brick_size_pct / 100:.2f})")
-                    
+
                     renko_fig = create_renko_chart(hist_data, selected_holding, brick_size_pct)
                     
                     if renko_fig:
@@ -546,14 +546,196 @@ with tab3:
 
 # Tab 4 - Analysis
 with tab4:
-    st.subheader("📊 Stock Analysis")
+    # Create TradingView-style layout
+    col_watchlist, col_main = st.columns([1, 3])
     
-    # Stock selector for analysis with search functionality
-    analysis_display = st.selectbox("Select Stock for Analysis", get_nifty_500_symbols(), key="analysis_symbol")
-    analysis_symbol = extract_symbol(analysis_display)
+    with col_watchlist:
+        # Add CSS for scrollable watchlist
+        st.markdown("""
+        <style>
+        .watchlist-container {
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Search functionality
+        search_query = st.text_input("Search stocks", placeholder="Type symbol...", key="watchlist_search")
+        
+        # Sort options
+        sort_option = st.selectbox("Sort by", ["Alphabetical", "Volume (High to Low)", "Volume (Low to High)"], key="sort_option")
+        
+        # Get all stocks for watchlist
+        all_symbols = get_nifty_500_symbols()
+        
+        # Filter stocks based on search
+        if search_query:
+            filtered_stocks = [s for s in all_symbols if search_query.upper() in s.upper()]
+        else:
+            filtered_stocks = all_symbols  # Show all stocks by default
+        
+        # Sort stocks based on selection
+        if sort_option.startswith("Volume"):
+            if len(filtered_stocks) > 100:
+                st.warning("⚠️ Volume sorting for large lists may take time. Consider searching to narrow down first.")
+            
+            try:
+                with st.spinner("Sorting by volume..."):
+                    # Get volume data for sorting
+                    volume_data = {}
+                    for stock_display in filtered_stocks:
+                        symbol = extract_symbol(stock_display)
+                        hist_data = get_historical_data(symbol, "1d")
+                        if hist_data is not None and not hist_data.empty:
+                            volume_data[stock_display] = hist_data['Volume'].iloc[-1] if 'Volume' in hist_data.columns else 0
+                        else:
+                            volume_data[stock_display] = 0
+                    
+                    # Sort by volume
+                    if sort_option == "Volume (High to Low)":
+                        filtered_stocks = sorted(filtered_stocks, key=lambda x: volume_data.get(x, 0), reverse=True)
+                    else:  # Volume (Low to High)
+                        filtered_stocks = sorted(filtered_stocks, key=lambda x: volume_data.get(x, 0))
+                        
+            except Exception as e:
+                st.error("Volume sorting failed, showing alphabetical order")
+        # Alphabetical is default, no sorting needed as symbols are already sorted
+        
+        # Initialize selected stock index
+        if 'selected_analysis_idx' not in st.session_state:
+            st.session_state.selected_analysis_idx = 0
+        
+        # Reset index if out of bounds
+        if filtered_stocks and st.session_state.selected_analysis_idx >= len(filtered_stocks):
+            st.session_state.selected_analysis_idx = 0
+        
+        # Navigation buttons at the top
+        col_up, col_down = st.columns(2)
+        with col_up:
+            if st.button("⬆️", key="analysis_up", use_container_width=True):
+                if filtered_stocks:
+                    st.session_state.selected_analysis_idx = (st.session_state.selected_analysis_idx - 1) % len(filtered_stocks)
+                    st.rerun()
+        with col_down:
+            if st.button("⬇️", key="analysis_down", use_container_width=True):
+                if filtered_stocks:
+                    st.session_state.selected_analysis_idx = (st.session_state.selected_analysis_idx + 1) % len(filtered_stocks)
+                    st.rerun()
+        
+        # Create watchlist
+        if filtered_stocks:
+            # Use Streamlit's native container with height
+            with st.container(height=400):
+                for i, stock_display in enumerate(filtered_stocks):
+                    symbol = extract_symbol(stock_display)
+                    
+                    # Create clickable stock row (no price fetching)
+                    if st.button(
+                        symbol,
+                        key=f"analysis_stock_{i}",
+                        use_container_width=True,
+                        type="primary" if i == st.session_state.selected_analysis_idx else "secondary"
+                    ):
+                        st.session_state.selected_analysis_idx = i
+                        st.rerun()
+            
+            # Get selected symbol
+            selected_display = filtered_stocks[st.session_state.selected_analysis_idx]
+            analysis_symbol = extract_symbol(selected_display)
+        else:
+            analysis_symbol = "RELIANCE"
     
-    # Fundamentals section
-    st.subheader("📈 Fundamentals")
+    with col_main:
+        # Charts section at the top
+        st.subheader(f"📈 {analysis_symbol} - Charts")
+        if current_price_display:
+            st.info(
+                f"Current: ₹{current_price_display:.2f} | Brick: {brick_size_pct}% (₹{current_price_display * brick_size_pct / 100:.2f})")
+
+        # Timeframe selector
+        timeframe = st.radio("Select Timeframe", ["6 Months", "1 Year"], horizontal=True)
+        period = "6mo" if timeframe == "6 Months" else "1y"
+        
+        # Get historical data based on selected timeframe
+        hist_data = get_historical_data(analysis_symbol, period)
+
+        # Renko Chart (moved to top)
+        st.write(f"**{timeframe} Renko Chart**")
+
+        if hist_data is not None and not hist_data.empty:
+            current_price_display = get_current_price(analysis_symbol)
+            brick_size_pct = 1.0
+
+            renko_fig = create_renko_chart(hist_data, analysis_symbol, brick_size_pct)
+
+            if renko_fig:
+                st.pyplot(renko_fig)
+            else:
+                st.warning("Unable to generate Renko chart")
+        else:
+            st.error("Unable to load data for Renko chart")
+
+        # Candlestick Chart with Moving Averages (moved to bottom)
+        st.write(f"**{timeframe} Chart with Moving Averages**")
+        
+        if hist_data is not None and not hist_data.empty:
+            # Prepare data for mplfinance
+            ohlcv = hist_data.copy()
+            
+            # If columns are multi-level, flatten them
+            if isinstance(ohlcv.columns, pd.MultiIndex):
+                ohlcv.columns = ohlcv.columns.droplevel(1)
+            
+            # Calculate moving averages
+            sma_20 = calculate_sma(hist_data, 20)
+            sma_50 = calculate_sma(hist_data, 50)
+            
+            # Create addplots for moving averages
+            apds = []
+            if sma_20 is not None:
+                apds.append(mpf.make_addplot(sma_20, color='#FF6B35', width=2))
+            if sma_50 is not None:
+                apds.append(mpf.make_addplot(sma_50, color='#004E89', width=2))
+            
+            # Custom style for cleaner look
+            mc = mpf.make_marketcolors(
+                up='#00C851',
+                down='#FF4444', 
+                edge='inherit',
+                wick={'up':'#00C851', 'down':'#FF4444'},
+                volume='in'
+            )
+            
+            s = mpf.make_mpf_style(
+                marketcolors=mc,
+                gridstyle='-',
+                gridcolor='#E0E0E0',
+                facecolor='white',
+                figcolor='white'
+            )
+            
+            # Create the candlestick chart
+            fig, axes = mpf.plot(
+                ohlcv,
+                type='candle',
+                style=s,
+                title=f"{analysis_symbol} - {timeframe} Analysis",
+                figsize=(12, 6),
+                addplot=apds if apds else None,
+                returnfig=True,
+                tight_layout=True
+            )
+            
+            st.pyplot(fig)
+        else:
+            st.error("Unable to load chart data")
+        
+        # Fundamentals section below charts
+        st.subheader("📈 Fundamentals")
     
     fundamentals = get_stock_fundamentals(analysis_symbol)
     
@@ -585,87 +767,6 @@ with tab4:
                 st.metric("52W Low", f"₹{fundamentals['week_52_low']:.2f}")
     else:
         st.warning("Unable to fetch fundamental data")
-    
-    # Charts section below fundamentals
-    st.subheader(f"📈 {analysis_symbol} - Charts")
-    
-    # Create two columns for charts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("**1 Year Chart with Moving Averages**")
-        
-        # Get 1-year historical data
-        hist_data = get_historical_data(analysis_symbol, "1y")
-        
-        if hist_data is not None and not hist_data.empty:
-            # Calculate moving averages
-            sma_20 = calculate_sma(hist_data, 20)
-            sma_50 = calculate_sma(hist_data, 50)
-            
-            # Create chart
-            fig = go.Figure()
-            
-            # Add candlestick
-            fig.add_trace(go.Candlestick(
-                x=hist_data.index,
-                open=hist_data['Open'],
-                high=hist_data['High'],
-                low=hist_data['Low'],
-                close=hist_data['Close'],
-                name=analysis_symbol
-            ))
-            
-            # Add moving averages
-            if sma_20 is not None:
-                fig.add_trace(go.Scatter(
-                    x=hist_data.index,
-                    y=sma_20,
-                    mode='lines',
-                    name='SMA 20',
-                    line=dict(color='orange', width=2)
-                ))
-            
-            if sma_50 is not None:
-                fig.add_trace(go.Scatter(
-                    x=hist_data.index,
-                    y=sma_50,
-                    mode='lines',
-                    name='SMA 50',
-                    line=dict(color='blue', width=2)
-                ))
-            
-            fig.update_layout(
-                title=f"{analysis_symbol} - 1 Year Analysis",
-                yaxis_title="Price (₹)",
-                xaxis_title="Date",
-                height=400
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.error("Unable to load chart data")
-    
-    with col2:
-        st.write("**6 Month Renko Chart**")
-        
-        # Get 6-month historical data for Renko
-        hist_data_6m = get_historical_data(analysis_symbol, "6mo")
-        
-        if hist_data_6m is not None and not hist_data_6m.empty:
-            current_price = get_current_price(analysis_symbol)
-            brick_size_pct = 1.0
-            if current_price:
-                st.info(f"Current: ₹{current_price:.2f} | Brick: {brick_size_pct}% (₹{current_price * brick_size_pct / 100:.2f})")
-            
-            renko_fig = create_renko_chart(hist_data_6m, analysis_symbol, brick_size_pct)
-            
-            if renko_fig:
-                st.pyplot(renko_fig)
-            else:
-                st.warning("Unable to generate Renko chart")
-        else:
-            st.error("Unable to load data for Renko chart")
 
 # Footer
 st.markdown("---")
